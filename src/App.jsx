@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
-import Search from './components/Search'
+import { useEffect, useState } from 'react';
+import Search from './components/Search';
 import Spinner from './components/Spinner';
+import MovieCard from './components/MovieCard';
+import { useDebounce } from 'react-use';
 
 const API_BASE_URL = 'https://api.themoviedb.org/3';
 
@@ -19,13 +21,20 @@ const App = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [movieList, setMovieList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [debouceedSearchTerm, setDebouncedSearchTerm] = useState('');
 
-  const fetchMovies = async () => {
+
+  // useDebounce is a custom hook that delays the update of the searchTerm state by 500ms
+  // This is useful to avoid making too many API calls while the user is typing
+  // It will only update the searchTerm state after the user has stopped typing for 500ms
+  useDebounce(()=> setDebouncedSearchTerm(searchTerm), 500, [searchTerm]);
+
+  const fetchMovies = async (query = '') => {
     setIsLoading(true);
     setErrorMessage('');
 
     try {
-      const endpoint = `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
+      const endpoint = query ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}` :`${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
 
       const response = await fetch(endpoint, API_OPTIONS);
       
@@ -34,6 +43,8 @@ const App = () => {
       }
 
       const data = await response.json();
+
+      console.log("Fetched movies:", data);
       if(data.Response === 'error') {
         setErrorMessage(data.error || 'Failed to fetch movies');
         setMovieList([]);
@@ -51,8 +62,8 @@ const App = () => {
   }
 
   useEffect(() => {
-    fetchMovies();
-  },[])
+    fetchMovies(debouceedSearchTerm);
+  },[debouceedSearchTerm])  //useEffect will run when the component mounts and when searchTerm changes
   
   return (
     <main>
@@ -70,7 +81,7 @@ const App = () => {
             {isLoading ?(<Spinner/>) : errorMessage ? (<p className='text-white'>{errorMessage}</p>) : (
               <ul>
                 {movieList.map((movie) => (
-                  <p key={movie.id} className='text-white'>{movie.title}</p>
+                  <MovieCard movie={movie} key={movie.id}/>
                 ))}
               </ul>
             )}  
